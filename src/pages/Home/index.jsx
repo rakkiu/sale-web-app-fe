@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getProducts } from '../../services/productService';
 import Header from '../../components/common/Header';
 import Footer from '../../components/common/Footer';
 import Button from '../../components/ui/Button';
@@ -7,7 +8,52 @@ import EditText from '../../components/ui/EditText';
 const Home = () => {
   const [selectedFlashSaleDate, setSelectedFlashSaleDate] = useState('23/8');
   const [selectedGearArenaDate, setSelectedGearArenaDate] = useState('1');
-  const [menuOpen, setMenuOpen] = useState(false);
+  
+  // State cho dữ liệu API
+  const [pcProducts, setPcProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch dữ liệu PC products
+  useEffect(() => {
+    const fetchPcProducts = async () => {
+      try {
+        setLoading(true);
+        const response = await getProducts({
+          size: 12,
+          sort: 'createdAt',
+          dir: 'desc'
+        });
+        
+        // Transform dữ liệu API để phù hợp với component
+        const transformedProducts = response.content.map(product => ({
+          id: product.id,
+          image: product.imageUrl || "/images/gearvn03.png",
+          name: product.name,
+          specs: [
+            { icon: "/images/img_svg_gray_600_01.svg", text: product.manufacturer },
+            { icon: "/images/img_svg_gray_600_01_10x10.svg", text: product.categoryName }
+          ],
+          originalPrice: `${(product.price * 1.2).toLocaleString('vi-VN')}₫`,
+          salePrice: `${product.price.toLocaleString('vi-VN')}₫`,
+          discount: "-17%",
+          rating: "0.0",
+          reviews: "(0 đánh giá)",
+          stock: product.stock,
+          description: product.description
+        }));
+        
+        setPcProducts(transformedProducts);
+      } catch (err) {
+        setError(err.message);
+        console.error('Lỗi khi tải dữ liệu PC products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPcProducts();
+  }, []);
 
   // Flash Sale Products Data
   const flashSaleProducts = [
@@ -128,7 +174,7 @@ const Home = () => {
   ];
 
   // PC Products Data
-  const pcProducts = [
+  const pcProductsData = [
     {
       id: 1,
       image: "/images/gearvn03.png",
@@ -1100,23 +1146,39 @@ const Home = () => {
             </div>
 
             <div className="relative">
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                <button className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-global-8 rounded-[16px] p-2 shadow-md">
-                  <img src="/images/img_arrow_left_gray_600_01.svg" alt="Previous" className="w-[24px] h-[24px] sm:w-[32px] sm:h-[32px]" />
-                </button>
-
-                <div className="flex gap-2 ml-8">
-                  {pcProducts?.map((product) => (
-                    <div key={product?.id} className="w-[180px] sm:w-[200px] md:w-[230px] flex-shrink-0">
-                      <ProductCard product={product} showSpecs={true} />
-                    </div>
-                  ))}
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-global-3"></div>
                 </div>
+              ) : error ? (
+                <div className="flex justify-center items-center h-64 text-red-500">
+                  <p>Lỗi tải dữ liệu: {error}</p>
+                </div>
+              ) : (
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                  <button className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-global-8 rounded-[16px] p-2 shadow-md">
+                    <img src="/images/img_arrow_left_gray_600_01.svg" alt="Previous" className="w-[24px] h-[24px] sm:w-[32px] sm:h-[32px]" />
+                  </button>
 
-                <button className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-global-8 rounded-[16px] p-2 shadow-md">
-                  <img src="/images/img_arrow_right.svg" alt="Next" className="w-[24px] h-[24px] sm:w-[32px] sm:h-[32px]" />
-                </button>
-              </div>
+                  <div className="flex gap-2 ml-8">
+                    {pcProducts?.length > 0 ? (
+                      pcProducts.map((product) => (
+                        <div key={product?.id} className="w-[180px] sm:w-[200px] md:w-[230px] flex-shrink-0">
+                          <ProductCard product={product} showSpecs={true} />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex justify-center items-center w-full h-32">
+                        <p className="text-gray-500">Không có sản phẩm nào</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <button className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-global-8 rounded-[16px] p-2 shadow-md">
+                    <img src="/images/img_arrow_right.svg" alt="Next" className="w-[24px] h-[24px] sm:w-[32px] sm:h-[32px]" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
