@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate(); // Thêm hook điều hướng
 
   return (
     <header className="w-full bg-global-7">
@@ -120,7 +122,10 @@ const Header = () => {
               </div>
 
               {/* Login */}
-              <div className="flex items-center gap-3 bg-header-1 rounded-[4px] px-2 py-2">
+              <div
+                className="flex items-center gap-3 bg-header-1 rounded-[4px] px-2 py-2 cursor-pointer"
+                onClick={() => navigate('/login')}
+              >
                 <img 
                   src="/images/img_svg_2.svg" 
                   alt="User" 
