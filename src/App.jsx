@@ -1,14 +1,15 @@
+import React from 'react';
 import { Provider } from 'react-redux';
-import { PersistGate } from 'redux-persist/integration/react';
-import { store, persistor } from './redux/store';
-import Routes from './Routes';
+import store from './redux/store'; // Chỉ import store, không import persistor
+import AppRoutes from './Routes';
+
 
 function App() {
   return (
     <Provider store={store}>
-      <PersistGate loading={<div>Loading...</div>} persistor={persistor}>
-        <Routes />
-      </PersistGate>
+      <div className="App">
+        <AppRoutes />
+      </div>
     </Provider>
   );
 }

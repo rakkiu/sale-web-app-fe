@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getProducts } from '../../services/productService';
+import api from '../../config/axios'; // Import axios instance
 import Header from '../../components/common/Header';
 import Footer from '../../components/common/Footer';
 import Button from '../../components/ui/Button';
 import EditText from '../../components/ui/EditText';
+import { useNavigate } from 'react-router-dom';
 
 const Home = () => {
+  const navigate = useNavigate();
   const [selectedFlashSaleDate, setSelectedFlashSaleDate] = useState('23/8');
   const [selectedGearArenaDate, setSelectedGearArenaDate] = useState('1');
   
@@ -14,39 +16,70 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch dữ liệu PC products
+  // Fetch dữ liệu PC products với axios
   useEffect(() => {
     const fetchPcProducts = async () => {
       try {
         setLoading(true);
-        const response = await getProducts({
-          size: 12,
-          sort: 'createdAt',
-          dir: 'desc'
+        setError(null);
+        
+        // Gọi API trực tiếp với axios
+        const response = await api.get('catalog/products', {
+          params: {
+            categoryId: '1',
+            size: 12,
+            sort: 'createdAt',
+            dir: 'desc'
+          }
         });
+
+        console.log('PC Products API Response:', response.data);
+        
+        // Kiểm tra cấu trúc response
+        const products = response.data?.content || response.data || [];
         
         // Transform dữ liệu API để phù hợp với component
-        const transformedProducts = response.content.map(product => ({
+        const transformedProducts = products.map(product => ({
           id: product.id,
           image: product.imageUrl || "/images/gearvn03.png",
           name: product.name,
           specs: [
-            { icon: "/images/img_svg_gray_600_01.svg", text: product.manufacturer },
-            { icon: "/images/img_svg_gray_600_01_10x10.svg", text: product.categoryName }
+            { icon: "/images/img_svg_gray_600_01.svg", text: product.manufacturer || 'N/A' },
+            { icon: "/images/img_svg_gray_600_01_10x10.svg", text: product.categoryName || 'N/A' }
           ],
           originalPrice: `${(product.price * 1.2).toLocaleString('vi-VN')}₫`,
           salePrice: `${product.price.toLocaleString('vi-VN')}₫`,
           discount: "-17%",
           rating: "0.0",
           reviews: "(0 đánh giá)",
-          stock: product.stock,
-          description: product.description
+          stock: product.stock || 0,
+          description: product.description || ''
         }));
         
         setPcProducts(transformedProducts);
+        console.log('Transformed PC Products:', transformedProducts);
+        
       } catch (err) {
-        setError(err.message);
         console.error('Lỗi khi tải dữ liệu PC products:', err);
+        
+        // Xử lý các loại lỗi khác nhau
+        if (err.response?.status === 401) {
+          setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (err.response?.status === 403) {
+          setError('Không có quyền truy cập dữ liệu sản phẩm.');
+        } else if (err.response?.status === 404) {
+          setError('Không tìm thấy dữ liệu sản phẩm.');
+        } else if (err.response?.data?.message) {
+          setError(`Lỗi: ${err.response.data.message}`);
+        } else if (err.message) {
+          setError(`Lỗi kết nối: ${err.message}`);
+        } else {
+          setError('Không thể tải dữ liệu sản phẩm. Vui lòng thử lại.');
+        }
+        
+        // Fallback: sử dụng dữ liệu mock nếu API fail
+        setPcProducts([]);
+        
       } finally {
         setLoading(false);
       }
@@ -664,13 +697,19 @@ const Home = () => {
     }
   ];
 
+  // Handle product click
+  const handleProductClick = (productId) => {
+    navigate(`/product/${productId}`);
+  };
+
   const ProductCard = ({ product, showSpecs = false }) => (
-    <div className="bg-global-13 rounded-[3px] shadow-sm hover:shadow-md transition-shadow duration-300 mb-3">
+    <div className="bg-global-13 rounded-[3px] shadow-sm hover:shadow-md transition-shadow duration-300 mb-3 cursor-pointer"
+         onClick={() => handleProductClick(product?.id)}>
       <div className="relative">
         <img
           src={product?.image}
           alt={product?.name}
-          className="w-full h-[120px] sm:h-[140px] md:h-[166px] object-cover rounded-t-[4px]"
+          className="w-full h-[120px] sm:h-[140px] md:h-[166px] object-cover rounded-t-[4px] hover:opacity-90 transition-opacity"
         />
         {product?.badge && (
           <div className="absolute bottom-2 left-2 bg-global-10 rounded-[10px] px-2 py-1">
@@ -683,7 +722,7 @@ const Home = () => {
       </div>
 
       <div className="p-2 sm:p-3">
-        <h3 className="text-global-3 text-[12px] sm:text-[14px] font-semibold mb-2 line-clamp-2">
+        <h3 className="text-global-3 text-[12px] sm:text-[14px] font-semibold mb-2 line-clamp-2 hover:text-global-2 transition-colors">
           {product?.name}
         </h3>
 
@@ -1299,7 +1338,7 @@ const Home = () => {
                 <div className="px-1 py-1">Dare-U</div>
                 <div className="px-4 py-1">Rapoo</div>
                 <span className="text-global-2">Xem tất cả</span>
-              </div>
+                           </div>
             </div>
 
             <div className="relative">

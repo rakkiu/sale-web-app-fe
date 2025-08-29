@@ -2,6 +2,8 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   user: null,
+  token: localStorage.getItem('token') || null, // Lấy token từ localStorage khi khởi tạo
+  isAuthenticated: !!localStorage.getItem('token')
 };
 
 export const userSlice = createSlice({

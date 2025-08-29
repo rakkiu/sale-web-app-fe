@@ -4,17 +4,25 @@ import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../../redux/features/userSlice';
 import api from '../../config/axios';
 import Button from '../ui/Button';
-import LoginModal from '../modals/LoginModal'; // Import LoginModal
+import LoginModal from '../modals/LoginModal';
 
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showLoginDropdown, setShowLoginDropdown] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false); // Thêm state cho modal
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { token, isAuthenticated } = useSelector((state) => state.user);
+  const { totalItems } = useSelector(state => state.cart);
 
   // Fetch user profile khi đã đăng nhập
   useEffect(() => {
@@ -25,7 +33,6 @@ const Header = () => {
           setUserProfile(response.data);
         } catch (error) {
           console.error('Error fetching profile:', error);
-          // Nếu token hết hạn, logout
           dispatch(logout());
         }
       }
@@ -34,6 +41,65 @@ const Header = () => {
     fetchProfile();
   }, [isAuthenticated, token, dispatch]);
 
+  // Search functionality
+  const handleSearch = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const response = await api.get('/catalog/products', {
+        params: {
+          search: query,
+          size: 5, // Limit results in dropdown
+          sort: 'createdAt',
+          dir: 'desc'
+        }
+      });
+
+      const products = response.data?.content || [];
+      setSearchResults(products);
+      setShowSearchDropdown(true);
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (searchQuery) {
+        handleSearch(searchQuery);
+      }
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
+
+  const handleSearchInputChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setShowSearchDropdown(false);
+    }
+  };
+
+  const handleProductSelect = (productId) => {
+    navigate(`/product/${productId}`);
+    setShowSearchDropdown(false);
+    setSearchQuery('');
+  };
+
   const handleLogout = () => {
     dispatch(logout());
     setUserProfile(null);
@@ -41,7 +107,6 @@ const Header = () => {
     navigate('/');
   };
 
-  // Hàm mở modal đăng nhập
   const handleOpenLoginModal = () => {
     setShowLoginDropdown(false);
     setShowLoginModal(true);
@@ -68,7 +133,8 @@ const Header = () => {
               <img
                 src="/images/img_link.svg"
                 alt="FPT Shop Logo"
-                className="w-[100px] h-[22px] sm:w-[120px] sm:h-[26px] lg:w-[140px] lg:h-[30px]"
+                className="w-[100px] h-[22px] sm:w-[120px] sm:h-[26px] lg:w-[140px] lg:h-[30px] cursor-pointer"
+                onClick={() => navigate('/')}
               />
             </div>
 
@@ -88,17 +154,79 @@ const Header = () => {
               </Button>
 
               {/* Search Bar */}
-              <div className="flex items-center bg-global-13 border border-global-13 rounded-[4px] w-full lg:w-auto lg:flex-1 max-w-md lg:max-w-none ml-0 lg:ml-2">
-                <div className="flex-1 px-4 py-2">
-                  <span className="text-header-1 text-base lg:text-[16px]">Bạn cần tìm gì?</span>
-                </div>
-                <button className="p-2">
-                  <img
-                    src="/images/img_button.svg"
-                    alt="Search"
-                    className="w-[24px] h-[28px] lg:w-[36px] lg:h-[42px]"
+              <div className="relative w-full lg:w-auto lg:flex-1 max-w-md lg:max-w-none ml-0 lg:ml-2">
+                <form onSubmit={handleSearchSubmit} className="flex items-center bg-global-13 border border-global-13 rounded-[4px]">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={handleSearchInputChange}
+                    placeholder="Bạn cần tìm gì?"
+                    className="flex-1 px-4 py-2 text-header-1 text-base lg:text-[16px] bg-transparent border-none outline-none"
+                    onFocus={() => {
+                      if (searchQuery && searchResults.length > 0) {
+                        setShowSearchDropdown(true);
+                      }
+                    }}
                   />
-                </button>
+                  <button type="submit" className="p-2">
+                    <img
+                      src="/images/img_button.svg"
+                      alt="Search"
+                      className="w-[24px] h-[28px] lg:w-[36px] lg:h-[42px]"
+                    />
+                  </button>
+                </form>
+
+                {/* Search Dropdown */}
+                {showSearchDropdown && (
+                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-[4px] shadow-lg z-50 mt-1 max-h-80 overflow-y-auto">
+                    {isSearching ? (
+                      <div className="p-4 text-center">
+                        <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-global-3"></div>
+                        <span className="ml-2 text-sm text-gray-600">Đang tìm kiếm...</span>
+                      </div>
+                    ) : searchResults.length > 0 ? (
+                      <>
+                        {searchResults.map((product) => (
+                          <div
+                            key={product.id}
+                            className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            onClick={() => handleProductSelect(product.id)}
+                          >
+                            <img
+                              src={product.imageUrl || "/images/gearvn03.png"}
+                              alt={product.name}
+                              className="w-12 h-12 object-cover rounded mr-3"
+                            />
+                            <div className="flex-1">
+                              <h4 className="text-sm font-medium text-gray-900 line-clamp-1">
+                                {product.name}
+                              </h4>
+                              <p className="text-sm text-red-600 font-semibold">
+                                {product.price.toLocaleString('vi-VN')}₫
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {product.categoryName}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="p-3 border-t border-gray-100">
+                          <button
+                            onClick={handleSearchSubmit}
+                            className="w-full text-center text-sm text-global-2 hover:underline"
+                          >
+                            Xem tất cả kết quả cho "{searchQuery}"
+                          </button>
+                        </div>
+                      </>
+                    ) : searchQuery ? (
+                      <div className="p-4 text-center text-sm text-gray-500">
+                        Không tìm thấy sản phẩm nào cho "{searchQuery}"
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
 
               {/* Contact Info */}
@@ -143,7 +271,10 @@ const Header = () => {
               {/* Cart and User */}
               <div className="flex items-center gap-2 lg:gap-1 ml-0 lg:ml-2">
                 {/* Cart */}
-                <div className="flex items-center gap-3 px-2 lg:px-2">
+                <div 
+                  className="flex items-center gap-3 px-2 lg:px-2 cursor-pointer"
+                  onClick={() => navigate('/cart')}
+                >
                   <div className="relative">
                     <img
                       src="/images/img_svg_1.svg"
@@ -151,7 +282,7 @@ const Header = () => {
                       className="w-[14px] h-[28px] lg:w-[18px] lg:h-[42px]"
                     />
                     <span className="absolute -top-1 -right-2 bg-header-2 text-global-1 text-[8px] lg:text-[9px] font-semibold rounded-[8px] px-1 py-0.5 border-2 border-global-13">
-                      0
+                      {totalItems || 0}
                     </span>
                   </div>
                   <div className="flex flex-col">
@@ -271,7 +402,7 @@ const Header = () => {
                         <div className="flex gap-2 mb-3">
                           <button
                             className="flex-1 bg-gray-800 text-white py-2 px-4 rounded text-sm font-medium hover:bg-gray-700"
-                            onClick={handleOpenLoginModal} // Sử dụng hàm mở modal
+                            onClick={handleOpenLoginModal}
                           >
                             ĐĂNG NHẬP
                           </button>
@@ -295,6 +426,14 @@ const Header = () => {
             </div>
           </div>
         </div>
+
+        {/* Click outside to close search dropdown */}
+        {showSearchDropdown && (
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setShowSearchDropdown(false)}
+          />
+        )}
       </header>
 
       {/* Login Modal */}

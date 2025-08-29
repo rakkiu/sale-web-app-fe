@@ -1,10 +1,11 @@
 import React from 'react'
 
-function Register() {
+function Header() {
     return (
         <>
+        
         </>
     )
 }
 
-export default Register
+export default Header

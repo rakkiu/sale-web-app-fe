@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../../config/axios';
 import { login, setToken } from '../../redux/features/userSlice';
 import { useDispatch } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 
 function parseJwt(token) {
   try {
@@ -21,10 +22,19 @@ function parseJwt(token) {
 
 function LoginModal({ isOpen, onClose }) {
   const dispatch = useDispatch();
+  const location = useLocation();
   const [form, setForm] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [redirectMessage, setRedirectMessage] = useState('');
+
+  // Kiểm tra có thông báo từ protected route không
+  useEffect(() => {
+    if (location.state?.message) {
+      setRedirectMessage(location.state.message);
+    }
+  }, [location.state]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -35,8 +45,10 @@ function LoginModal({ isOpen, onClose }) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setRedirectMessage('');
+    
     try {
-      const res = await api.post('/auth/login', form);
+      const res = await api.post('auth/login', form);
       const token = res.data;
       dispatch(setToken(token));
       const payload = parseJwt(token);
@@ -44,11 +56,13 @@ function LoginModal({ isOpen, onClose }) {
 
       onClose(); // Đóng modal
       
-      // Điều hướng theo role
+      // Điều hướng theo role hoặc về trang trước đó
+      const redirectTo = location.state?.from?.pathname || '/';
+      
       if (payload.role === 'ROLE_ADMIN') {
-        window.location.href = '/adminhome';
+        window.location.href = redirectTo.startsWith('/admin') ? redirectTo : '/admin';
       } else if (payload.role === 'ROLE_CUSTOMER') {
-        window.location.reload(); // Reload để cập nhật header
+        window.location.href = redirectTo === '/admin' ? '/' : redirectTo;
       }
     } catch (err) {
       setError('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
@@ -76,15 +90,15 @@ function LoginModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Overlay */}
-      <div 
-        className="absolute inset-0 bg-black bg-opacity-50" 
-        onClick={handleClose}
-      />
-      
-      {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${isOpen ? '' : 'hidden'}`}>
+      <div className="bg-white p-8 rounded-lg w-96 max-w-md">
+        {/* Hiển thị thông báo redirect */}
+        {redirectMessage && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">{redirectMessage}</p>
+          </div>
+        )}
+        
         {/* Close button */}
         <button
           onClick={handleClose}
